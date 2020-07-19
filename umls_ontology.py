@@ -46,6 +46,7 @@ class UMLSOntology:
 
     def get_parent_node(self, concept_id):
         """
+
         :param concept_id: CUI
         :return: all parent CUIS for the concept_id
         """
@@ -57,3 +58,43 @@ class UMLSOntology:
         :return: all child CUIS for the concept_id
         """
         self.mrrel[(self.mrrel.CUI1 == concept_id) & (self.mrrel.REL == 'CHD')].CUI2.tolist()
+
+    def extract_synsets(self):
+        synonyms = self.mrrel[self.mrrel.REL == 'SY'][['CUI1', 'CUI2']].drop_duplicates()
+        synonyms = synonyms.apply(restore_order, axis=1)
+        synonyms = synonyms.values.tolist()
+        join_to = 0
+        join_with = 1
+        while join_to != join_with:
+            if has_intersection(synonyms[join_to], synonyms[join_with]):
+                synonyms[join_to] = join(synonyms[join_to], synonyms[join_with])
+                synonyms.pop(join_with)
+            else:
+                join_to = max(join_to + 1, len(synonyms) - 1)
+                join_with = max(join_with + 1, len(synonyms) - 1)
+        return synonyms
+
+
+def has_intersection(a, b):
+    idx_a = 0
+    idx_b = 0
+    while idx_a < len(a) and idx_b < len(b):
+        if a[idx_a] == b[idx_b]:
+            return True
+        elif a[idx_a] < b[idx_b]:
+            idx_a += 1
+        else:
+            idx_b += 1
+    return False
+
+
+def join(a, b):
+    joined = set(a) | set(b)
+    joined = sorted(joined)
+    return list(joined)
+
+
+def restore_order(row):
+    if row['CUI1'] > row['CUI2']:
+        row['CUI1'], row['CUI2'] = row['CUI2'], row['CUI1']
+    return row
